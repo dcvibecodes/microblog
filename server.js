@@ -5,7 +5,7 @@ const { open } = require('sqlite');
 const sqlite3 = require('sqlite3');
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 let db;
 
 app.use(express.json());
