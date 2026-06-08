@@ -605,8 +605,13 @@ app.get('/', async (req, res) => {
 
     try {
         const searchQuery = req.query.q || '';
-        let entries;
-        const archives = await getArchives();
+let entries;
+let hasMore = false;
+
+const PAGE_SIZE = 50;
+const offset = parseInt(req.query.offset || '0', 10);
+
+const archives = await getArchives();
 
         if (searchQuery) {
             const formattedQuery = searchQuery.trim() + '*';
@@ -617,8 +622,18 @@ app.get('/', async (req, res) => {
                 ORDER BY entries.timestamp DESC
             `, [formattedQuery]);
         } else {
-            entries = await db.all('SELECT * FROM entries ORDER BY timestamp DESC');
-        }
+    const PAGE_SIZE = 50;
+    entries = await db.all(
+    'SELECT * FROM entries ORDER BY timestamp DESC LIMIT ? OFFSET ?',
+    [PAGE_SIZE, offset]
+);
+
+const totalPosts = await db.get(
+    'SELECT COUNT(*) AS count FROM entries'
+);
+
+hasMore = offset + PAGE_SIZE < totalPosts.count;
+}
 
         const entriesHTML = renderEntries(entries, req.isOwner);
         const topFiltersHTML = renderTopFilters(archives, null, null);
@@ -673,6 +688,13 @@ app.get('/', async (req, res) => {
             ${publishSection}
 
             <div id="entries">${entriesHTML}</div>
+            ${(!searchQuery && hasMore) ? `
+            <div style="text-align:center;margin:30px 0;">
+                <a href="/?offset=${offset + 50}" class="btn">
+                    Load More
+                </a>
+            </div>
+            ` : ''}
 
             <script>
                 var publishBox = document.getElementById('main-publish-box');
@@ -887,7 +909,7 @@ app.post('/edit/:id', requireOwner, async (req, res) => {
         const { content } = req.body;
         await db.run('UPDATE entries SET content = ? WHERE id = ?', [content, req.params.id]);
         await db.run('UPDATE entries_fts SET content = ? WHERE id = ?', [content, req.params.id]);
-        res.redirect('/');
+        res.redirect('/post/' + req.params.id);
     } catch (err) {
         res.status(500).send('Error updating post.');
     }
