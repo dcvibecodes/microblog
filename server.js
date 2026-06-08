@@ -11,11 +11,9 @@ let db;
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// Serve static files from public directory for PWA
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Initialize Database with virtual FTS5 tables for Fuzzy Search
+// Initialize Database
 async function initDatabase() {
     const dataDir = path.join(__dirname, 'data');
     if (!fs.existsSync(dataDir)) {
@@ -41,26 +39,24 @@ async function initDatabase() {
             content
         )
     `);
-    
+
     console.log('SQLite Database and FTS5 Search Index ready.');
 }
 
 function escapeHtml(text) {
-    var map = {
-        '&': '\x26amp;',
-        '<': '\x26lt;',
-        '>': '\x26gt;',
-        '"': '\x26quot;',
-        "'": '\x26#039;'
-    };
-    return String(text).replace(/[&<>"']/g, function(c) { return map[c]; });
+    return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
 }
 
 function generateId() {
     try {
         return crypto.randomUUID();
     } catch {
-        return Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
+        return Math.random().toString(36).substring(2, 11) + Date.now().toString(36);
     }
 }
 
@@ -74,7 +70,7 @@ function formatDate(timestamp) {
 
 function renderEntries(entries) {
     if (entries.length === 0) {
-        return `<p class="no-entries">Nothing here yet.</p>`;
+        return '<p class="no-entries">Nothing here yet.</p>';
     }
     return entries.map(entry => {
         const dateStr = formatDate(entry.timestamp);
@@ -82,15 +78,14 @@ function renderEntries(entries) {
         const safeContent = escapeHtml(entry.content);
         return `
             <div class="entry">
-                <div class="date" title="${fullDate}">
-                 ${dateStr}
-             </div>
+                <div class="date" title="${fullDate}">${dateStr}</div>
                 <div class="content">${safeContent}</div>
                 <div class="actions">
                     <a href="/post/${entry.id}" class="permalink" title="Permalink">#</a>
-                    <a href="/edit/${entry.id}" class="edit-link">Edit</a>
-                    <form action="/delete/${entry.id}" method="POST" style="background:none; padding:0; margin:0; display:inline;" onsubmit="return confirm('Delete this post?')">
-                        <button type="submit" class="delete-btn">Delete</button>
+                    <span class="copy-link" onclick="copyPermalink(this, '${entry.id}')">copy</span>
+                    <a href="/edit/${entry.id}" class="edit-link">edit</a>
+                    <form action="/delete/${entry.id}" method="POST" style="background:none;padding:0;margin:0;display:inline;" onsubmit="return confirm('Delete this post?')">
+                        <button type="submit" class="delete-btn">delete</button>
                     </form>
                 </div>
             </div>
@@ -98,20 +93,17 @@ function renderEntries(entries) {
     }).join('');
 }
 
-// Generates the inline dropdown select markup on top
 function renderTopFilters(archives, selectedYear, selectedMonth) {
     const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    
-    // Extract unique years and months from index array records
     const years = [...new Set(archives.map(a => a.year))].sort((a, b) => b - a);
     const months = ["01","02","03","04","05","06","07","08","09","10","11","12"];
 
-    let yearOptions = `<option value="">All Years</option>`;
+    let yearOptions = '<option value="">All Years</option>';
     years.forEach(y => {
         yearOptions += `<option value="${y}" ${selectedYear === y ? 'selected' : ''}>${y}</option>`;
     });
 
-    let monthOptions = `<option value="">All Months</option>`;
+    let monthOptions = '<option value="">All Months</option>';
     months.forEach(m => {
         const monthName = monthNames[parseInt(m, 10) - 1];
         monthOptions += `<option value="${m}" ${selectedMonth === m ? 'selected' : ''}>${monthName}</option>`;
@@ -132,7 +124,7 @@ function renderTopFilters(archives, selectedYear, selectedMonth) {
     `;
 }
 
-// Global Stylesheet optimized for ultra-minimalist responsive mobile viewports
+
 const sharedStyles = `
     * { box-sizing: border-box; }
     html { width: 100%; overflow-x: hidden; }
@@ -151,285 +143,74 @@ const sharedStyles = `
         --separator-color: #1a1a1a;
     }
     html, body { overflow-x: hidden; overscroll-behavior-x: none; width: 100%; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; max-width: 580px; margin: 20px auto; padding: 0 16px; background: var(--bg-body); color: var(--text-main); transition: background 0.2s, color 0.2s; -webkit-font-smoothing: antialiased; letter-spacing: -0.01em; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; max-width: 580px; margin: 20px auto; padding: 0 16px; background: var(--bg-body); color: var(--text-main); -webkit-font-smoothing: antialiased; letter-spacing: -0.01em; }
     img, textarea, input, select, button { max-width: 100%; }
     header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; padding-bottom: 10px; }
-    
-    .header-controls {
-    display: flex;
-    align-items: center;
-    line-height: 1;
-    }
-    .theme-toggle {
-    background: none !important;
-    border: none;
-    color: var(--text-muted);
-    text-decoration: none;
-    padding: 0;
-    cursor: pointer;
-    font-size: 0.85rem;
-    font-weight: 500;
-    transition: color 0.2s ease;
-    line-height: 1;
-}
-
-.theme-toggle:hover {
-    color: var(--text-main);
-}
-    
+    .header-controls { display: flex; align-items: center; line-height: 1; }
+    .theme-toggle { background: none !important; border: none; color: var(--text-muted); text-decoration: none; padding: 0; cursor: pointer; font-size: 0.85rem; font-weight: normal; transition: color 0.2s ease; line-height: 1; }
+    .theme-toggle:hover { color: var(--text-main); }
     .container { width: 100%; max-width: 100%; margin-top: 20px; }
     .main-content { width: 100%; max-width: 100%; }
-    
     form, .edit-container, .search-container { background: var(--bg-card); padding: 0; margin-bottom: 30px; max-width: 100%; }
-    
-    textarea { width: 100%; max-width: 100%; height: 50px; padding: 12px 0; background: var(--bg-body); color: var(--text-main); border: none; border-bottom: 1px solid var(--separator-color); font-family: inherit; font-size: 1rem; outline: none; resize: none; overflow: hidden; display: block; }
+    textarea {
+    width: 100%;
+    max-width: 100%;
+    min-height: 50px;
+    padding: 12px 0;
+    background: var(--bg-body);
+    color: var(--text-main);
+    border: none;
+    border-bottom: 1px solid var(--separator-color);
+    font-family: inherit;
+    font-size: 1rem;
+    outline: none;
+    resize: none;
+    overflow-y: hidden;
+    display: block;
+}
     input[type="text"] { width: 100%; max-width: 100%; padding: 12px 0; background: var(--bg-body); color: var(--text-main); border: none; border-bottom: 1px solid var(--separator-color); font-family: inherit; font-size: 1rem; outline: none; }
-    
-    /* Mobile-responsive Filter Bar Dropdowns */
     .filter-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 30px; padding-bottom: 5px; max-width: 100%; }
     .filter-bar select { background: var(--bg-body); color: var(--text-main); border: 1px solid var(--separator-color); padding: 6px 12px; border-radius: 12px; font-family: inherit; font-size: 0.9rem; outline: none; cursor: pointer; }
-    
-    /* Unified high-contrast buttons */
-    button, .btn, .filter-submit-btn { 
-        background: #000000; 
-        color: #ffffff; 
-        border: none; 
-        cursor: pointer; 
-        font-weight: bold; 
-        text-decoration: none; 
-        display: inline-block; 
-        transition: opacity 0.2s;
-    }
-    
-    button, .btn { 
-        padding: 10px 20px; 
-        border-radius: 20px; 
-        font-size: 0.9rem; 
-        margin-top: 15px; 
-    }
-    
-    .filter-submit-btn { 
-        padding: 6px 14px; 
-        border-radius: 12px; 
-        font-size: 0.85rem; 
-        margin-top: 0 !important; 
-    }
-    
-    button:hover, .btn:hover, .filter-submit-btn:hover { 
-        opacity: 0.8; 
-    }
-    
-    [data-theme="dark"] button, 
-    [data-theme="dark"] .btn, 
-    [data-theme="dark"] .filter-submit-btn { 
-        background: #ffffff; 
-        color: #000000; 
-    }
-    
-    .search-form {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    width: 100%;
-    }
+    button, .btn, .filter-submit-btn { background: #000000; color: #ffffff; border: none; cursor: pointer; font-weight: bold; text-decoration: none; display: inline-block; transition: opacity 0.2s; }
+    button, .btn { padding: 10px 20px; border-radius: 20px; font-size: 0.9rem; margin-top: 15px; }
+    .filter-submit-btn { padding: 6px 14px; border-radius: 12px; font-size: 0.85rem; margin-top: 0 !important; }
+    button:hover, .btn:hover, .filter-submit-btn:hover { opacity: 0.8; }
+    [data-theme="dark"] button, [data-theme="dark"] .btn, [data-theme="dark"] .filter-submit-btn { background: #ffffff; color: #000000; }
+    .search-form { display: flex; align-items: center; gap: 8px; width: 100%; }
     .search-form input[type="text"] { flex: 1; min-width: 0; }
-    .search-form .search-icon-btn {
-    margin-top: 0;
-    }
-    
+    .search-form .search-icon-btn { margin-top: 0; }
     .entry { background: var(--bg-card); padding: 0; padding-bottom: 25px; margin-bottom: 25px; border-bottom: 1px solid var(--separator-color); max-width: 100%; }
     .entry:last-child { border-bottom: none; }
-    
-    .date {
-    font-size: 0.75rem;
-    color: var(--text-muted);
-    opacity: 0.75;
-    margin-bottom: 12px;
-    }
+    .date { font-size: 0.75rem; color: var(--text-muted); opacity: 0.75; margin-bottom: 12px; }
     .actions { display: flex; gap: 15px; align-items: baseline; justify-content: flex-end; }
-    
     .content { white-space: pre-wrap; line-height: 1.6; font-size: 1.05rem; margin-bottom: 12px; }
-    
-    .edit-link { color: var(--text-muted); text-decoration: none; font-weight: bold; font-size: 0.85rem; transition: color 0.2s ease; }
+    .edit-link { color: var(--text-muted); text-decoration: none; font-weight: normal; font-size: 0.85rem; transition: color 0.2s ease; }
     .edit-link:hover { color: var(--text-main); }
-    
-    .delete-btn { background: none !important; color: #d96b6b; border: none; padding: 0; margin: 0; font-size: 0.85rem; font-weight: bold; cursor: pointer; appearance: none; -webkit-appearance: none; }
+    .delete-btn { background: none !important; color: #d96b6b; border: none; padding: 0; margin: 0; font-size: 0.85rem; font-weight: normal; cursor: pointer; appearance: none; -webkit-appearance: none; }
     .delete-btn:hover { color: #ff7a7a; }
     [data-theme="dark"] .delete-btn { background: none !important; color: #d96b6b; }
-    .cancel-btn {
-    background: none;
-    color: var(--text-muted);
-    margin-left: 15px;
-    font-weight: bold;
-    text-decoration: none;
-    transition: color 0.2s ease;
-}
-
-.cancel-btn:hover {
-    color: var(--text-main);
-    text-decoration: underline;
-}
-    
-    .clear-search {
-    font-size: 0.9rem;
-    color: var(--text-muted);
-    text-decoration: none;
-    margin-left: 5px;
-    font-weight: 500;
-}
-
-.random-link {
-    color: var(--text-muted);
-    text-decoration: none;
-    font-size: 0.85rem;
-    font-weight: 500;
-    transition: color 0.2s ease;
-}
-
-.random-link:hover {
-    color: var(--text-main);
-}
-    
-.header-separator {
-    color: var(--text-muted);
-    opacity: 0.5;
-    margin: 0 6px;
-    user-select: none;
-}
-
-.back-link {
-    color: var(--text-muted);
-    text-decoration: none;
-    font-weight: bold;
-    font-size: 0.9rem;
-    transition: color 0.2s ease;
-}
-
-.back-link:hover {
-    color: var(--text-main);
-}
-
-.no-entries {
-    text-align: center;
-    color: var(--text-muted);
-    margin-top: 20px;
-}
-    
-    .permalink { color: var(--text-muted); text-decoration: none; font-size: 0.85rem; font-weight: bold; opacity: 0.5; }
+    .cancel-btn { background: none; color: var(--text-muted); margin-left: 15px; font-weight: normal; text-decoration: none; transition: color 0.2s ease; }
+    .cancel-btn:hover { color: var(--text-main); text-decoration: underline; }
+    .clear-search { font-size: 0.9rem; color: var(--text-muted); text-decoration: none; margin-left: 5px; font-weight: normal; }
+    .random-link { color: var(--text-muted); text-decoration: none; font-size: 0.85rem; font-weight: normal; transition: color 0.2s ease; }
+    .random-link:hover { color: var(--text-main); }
+    .header-separator { color: var(--text-muted); opacity: 0.5; margin: 0 6px; user-select: none; }
+    .back-link { color: var(--text-muted); text-decoration: none; font-weight: normal; font-size: 0.9rem; transition: color 0.2s ease; }
+    .back-link:hover { color: var(--text-main); }
+    .no-entries { text-align: center; color: var(--text-muted); margin-top: 20px; }
+    .permalink { color: var(--text-muted); text-decoration: none; font-size: 0.85rem; font-weight: normal; opacity: 0.5; }
     .permalink:hover { opacity: 1; }
-    
+    .copy-link { color: var(--text-muted); text-decoration: none; font-size: 0.85rem; font-weight: normal; cursor: pointer; transition: color 0.2s ease; }
+    .copy-link:hover { color: var(--text-main); }
     .char-counter { font-size: 0.7rem; color: var(--text-muted); opacity: 0.6; margin-top: 4px; text-align: right; }
     .shortcut-hint { font-size: 0.7rem; color: var(--text-muted); opacity: 0.5; margin-top: 8px; margin-bottom: 10px; }
-    
-    .search-icon-btn {
-    background: none !important;
-    border: none !important;
-    padding: 0;
-    margin: 0;
-    color: var(--text-muted);
-    cursor: pointer;
-    opacity: 0.6;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
- }
-
-    .search-icon-btn svg {
-        width: 18px;
-        height: 18px;
-        display: block;
-    }
-
-    .search-icon-btn:hover {
-        opacity: 1;
-    }
-
-    [data-theme="dark"] .search-icon-btn {
-        background: none !important;
-        color: var(--text-muted);
-    }
-
-    .back-to-top {
-        position: fixed;
-        right: 16px;
-        bottom: 20px;
-        color: var(--text-main);
-        text-decoration: none;
-        font-size: 1.1rem;
-        opacity: 0;
-        transition: opacity 0.2s ease;
-        z-index: 1000;
-        cursor: pointer;
-        user-select: none;
-    }
-
-    .back-to-top.visible {
-        opacity: 0.6;
-    }
-
-    .back-to-top:hover {
-        opacity: 1;
-    }
-`;
-
-const themeScript = `
-    const toggleBtn = document.getElementById('themeToggle');
-    const currentTheme = localStorage.getItem('theme') || 'light';
-    if (currentTheme === 'dark') {
-        document.documentElement.setAttribute('data-theme', 'dark');
-        if(toggleBtn) toggleBtn.textContent = 'Light';
-    }
-    if(toggleBtn) {
-    toggleBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-
-        let theme = 'light';
-            if (document.documentElement.getAttribute('data-theme') !== 'dark') {
-                document.documentElement.setAttribute('data-theme', 'dark');
-                toggleBtn.textContent = 'Light';
-                theme = 'dark';
-            } else {
-                document.documentElement.removeAttribute('data-theme');
-                toggleBtn.textContent = 'Dark';
-                theme = 'light';
-            }
-            localStorage.setItem('theme', theme);
-        });
-    }
-`;
-
-const filterExecutionScript = `
-    function applyFilters() {
-        const year = document.getElementById('filter-year').value;
-        const month = document.getElementById('filter-month').value;
-        
-        if (!year && !month) {
-            window.location.href = '/';
-            return;
-        }
-        
-        if (year && month) {
-            window.location.href = "/archive/" + year + "/" + month;
-        } else if (year) {
-            window.location.href = "/archive/year/" + year;
-        } else if (month) {
-            window.location.href = "/archive/month/" + month;
-        }
-    }
-`;
-
-const textareaAutoResizeScript = `
-    function attachAutoResize(textareaId) {
-        const el = document.getElementById(textareaId);
-        if (!el) return;
-        function resize() {
-            el.style.height = 'auto';
-            el.style.height = el.scrollHeight + 'px';
-        }
-        el.addEventListener('input', resize);
-        resize();
-    }
+    .search-icon-btn { background: none !important; border: none !important; padding: 0; margin: 0; color: var(--text-muted); cursor: pointer; opacity: 0.6; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .search-icon-btn svg { width: 18px; height: 18px; display: block; }
+    .search-icon-btn:hover { opacity: 1; }
+    [data-theme="dark"] .search-icon-btn { background: none !important; color: var(--text-muted); }
+    .back-to-top { position: fixed; right: 16px; bottom: 20px; color: var(--text-main); text-decoration: none; font-size: 1.1rem; opacity: 0; transition: opacity 0.2s ease; z-index: 1000; cursor: pointer; user-select: none; }
+    .back-to-top.visible { opacity: 0.6; }
+    .back-to-top:hover { opacity: 1; }
 `;
 
 const layoutTemplate = ({ title, bodyContent }) => `
@@ -441,53 +222,124 @@ const layoutTemplate = ({ title, bodyContent }) => `
     <title>${title}</title>
     <link rel="manifest" href="/manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Microblog">
-    <link rel="apple-touch-icon" href="/icon.svg">
-    <link rel="icon" type="image/svg+xml" href="/icon.svg">
-    <link rel="shortcut icon" href="/icon.svg">
+    <meta name="theme-color" content="#1a1a1a">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
     <style>${sharedStyles}</style>
+    <script>(function(){var t=localStorage.getItem('theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');})()</script>
 </head>
 <body>
     <header>
-    <h1><a href="/" style="color: inherit; text-decoration: none;">Microblog</a></h1>
-
-    <div class="header-controls">
-    <a href="/random" class="random-link">Random</a>
-    <span class="header-separator">·</span>
-    <a href="#" id="themeToggle" class="theme-toggle">Dark</a>
-</div>
+        <h1><a href="/" style="color:inherit;text-decoration:none;">Microblog</a></h1>
+        <div class="header-controls">
+            <a href="/random" class="random-link">Random</a>
+            <span class="header-separator">&middot;</span>
+            <a href="#" id="themeToggle" class="theme-toggle">Dark</a>
+            <script>(function(){var b=document.getElementById('themeToggle');if(b&&document.documentElement.getAttribute('data-theme')==='dark')b.textContent='Light';})()</script>
+        </div>
     </header>
-    
     <div class="container">
-        <main class="main-content">
-            ${bodyContent}
-        </main>
+        <main class="main-content">${bodyContent}</main>
     </div>
-    <script>${themeScript}</script>
-    <script>${filterExecutionScript}</script>
-    <a href="#" id="backToTop" class="back-to-top" aria-label="Back to top">↑</a>
+    <a href="#" id="backToTop" class="back-to-top" aria-label="Back to top">&uarr;</a>
     <script>
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js');
-        }
-    </script>
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            var backToTop = document.getElementById('backToTop');
-            if (!backToTop) return;
-            window.addEventListener('scroll', function() {
-                if (window.scrollY > 500) {
-                    backToTop.classList.add('visible');
+    (function(){
+        // Theme toggle
+        var toggleBtn = document.getElementById('themeToggle');
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+                if (isDark) {
+                    document.documentElement.removeAttribute('data-theme');
+                    toggleBtn.textContent = 'Dark';
+                    localStorage.setItem('theme', 'light');
                 } else {
-                    backToTop.classList.remove('visible');
+                    document.documentElement.setAttribute('data-theme', 'dark');
+                    toggleBtn.textContent = 'Light';
+                    localStorage.setItem('theme', 'dark');
                 }
+            });
+        }
+
+        // Copy post text
+        window.copyPermalink = function(el, id) {
+            var entry = el.closest('.entry');
+            var content = entry ? entry.querySelector('.content') : null;
+            var text = content ? content.textContent : '';
+            navigator.clipboard.writeText(text).then(function() {
+                el.textContent = 'copied';
+                setTimeout(function() { el.textContent = 'copy'; }, 2000);
+            }).catch(function() {
+                el.textContent = 'failed';
+                setTimeout(function() { el.textContent = 'copy'; }, 2000);
+            });
+        };
+
+        // Filter navigation
+        window.applyFilters = function() {
+            var year = document.getElementById('filter-year').value;
+            var month = document.getElementById('filter-month').value;
+            if (!year && !month) { window.location.href = '/'; return; }
+            if (year && month) { window.location.href = '/archive/' + year + '/' + month; }
+            else if (year) { window.location.href = '/archive/year/' + year; }
+            else if (month) { window.location.href = '/archive/month/' + month; }
+        };
+
+        // Textarea auto-resize
+        window.attachAutoResize = function(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+
+    function resize() {
+        el.style.height = 'auto';
+        el.style.overflowY = 'hidden';
+        el.style.height = el.scrollHeight + 'px';
+    }
+
+    el.addEventListener('input', resize);
+
+    // Handle pasted content
+    el.addEventListener('paste', function() {
+        setTimeout(resize, 0);
+    });
+
+    // Initial sizing for edit forms
+    requestAnimationFrame(resize);
+    window.addEventListener('load', resize);
+
+    resize();
+};
+
+        // Publishing button feedback
+        var addForms = document.querySelectorAll('form[action="/add"]');
+        addForms.forEach(function(form) {
+            form.addEventListener('submit', function() {
+                var btn = form.querySelector('button[type="submit"]');
+                if (btn) { btn.textContent = 'Publishing...'; btn.disabled = true; }
+            });
+        });
+
+        // Back to top
+        var backToTop = document.getElementById('backToTop');
+        if (backToTop) {
+            window.addEventListener('scroll', function() {
+                if (window.scrollY > 500) { backToTop.classList.add('visible'); }
+                else { backToTop.classList.remove('visible'); }
             });
             backToTop.addEventListener('click', function(e) {
                 e.preventDefault();
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             });
-        });
+        }
+
+        // Service Worker
+        if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/sw.js'); }
+    })();
     </script>
 </body>
 </html>
@@ -497,10 +349,10 @@ const layoutTemplate = ({ title, bodyContent }) => `
 async function getArchives() {
     return await db.all(`
         SELECT strftime('%Y', timestamp / 1000, 'unixepoch') AS year,
-               strftime('%m', timestamp / 1000, 'unixepoch') AS month,
-               COUNT(*) AS count 
-        FROM entries 
-        GROUP BY year, month 
+            strftime('%m', timestamp / 1000, 'unixepoch') AS month,
+               COUNT(*) AS count
+        FROM entries
+        GROUP BY year, month
         ORDER BY year DESC, month DESC
     `);
 }
@@ -511,11 +363,10 @@ app.get('/', async (req, res) => {
     try {
         const searchQuery = req.query.q || '';
         let entries;
-
         const archives = await getArchives();
 
         if (searchQuery) {
-            const formattedQuery = `${searchQuery.trim()}*`;
+            const formattedQuery = searchQuery.trim() + '*';
             entries = await db.all(`
                 SELECT entries.* FROM entries
                 JOIN entries_fts ON entries.id = entries_fts.id
@@ -539,73 +390,81 @@ app.get('/', async (req, res) => {
                             <line x1="16.65" y1="16.65" x2="21" y2="21"></line>
                         </svg>
                     </button>
-                    ${searchQuery ? `<a href="/" class="clear-search">Clear</a>` : ''}
+                    ${searchQuery ? '<a href="/" class="clear-search">Clear</a>' : ''}
                 </form>
             </div>
-            
+
             ${topFiltersHTML}
-            
+
             <form action="/add" method="POST">
-                <textarea id="main-publish-box" name="content" placeholder="Share a thought..." required></textarea>
-                <div class="char-counter" id="char-counter">0 characters</div>
-                <div class="shortcut-hint">Shortcuts: <kbd>N</kbd> = new post &middot; <kbd>/</kbd> = search</div>
-                <button type="submit">Publish</button>
-            </form>
+    <textarea
+    id="main-publish-box"
+    name="content"
+    placeholder="Share a thought..."
+    required
+    oninput="console.log('INPUT EVENT');this.style.height='auto';this.style.height=this.scrollHeight+'px';"
+></textarea>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var el = document.getElementById('main-publish-box');
+        if (el) {
+            el.style.height = 'auto';
+            el.style.height = el.scrollHeight + 'px';
+        }
+    });
+    </script>
+
+    <div class="char-counter" id="char-counter">0 words &middot; 0 characters</div>
+    <div class="shortcut-hint">Shortcuts: <kbd>N</kbd> = new post &middot; <kbd>/</kbd> = search</div>
+    <button type="submit">Publish</button>
+</form>
 
             <div id="entries">${entriesHTML}</div>
-            
+
             <script>
-                ${textareaAutoResizeScript}
-                attachAutoResize('main-publish-box');
-                
-                // Character counter
-                const publishBox = document.getElementById('main-publish-box');
-                const charCounter = document.getElementById('char-counter');
+   
+
+                var publishBox = document.getElementById('main-publish-box');
+                var charCounter = document.getElementById('char-counter');
                 if (publishBox && charCounter) {
                     publishBox.addEventListener('input', function() {
-                        charCounter.textContent = this.value.length + ' characters';
+                        var text = this.value;
+                        var chars = text.length;
+                        var words = text.trim() === '' ? 0 : text.trim().split(/\\s+/).length;
+                        charCounter.textContent = words + ' words \\u00b7 ' + chars + ' characters';
                     });
                 }
-                
-                // Keyboard shortcuts
+
                 document.addEventListener('keydown', function(e) {
-                    const tag = e.target.tagName.toLowerCase();
+                    var tag = e.target.tagName.toLowerCase();
                     if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
-                    
                     if (e.key === 'n' || e.key === 'N') {
                         e.preventDefault();
-                        const composeBox = document.getElementById('main-publish-box');
-                        if (composeBox) composeBox.focus();
+                        var box = document.getElementById('main-publish-box');
+                        if (box) box.focus();
                     }
                     if (e.key === '/') {
                         e.preventDefault();
-                        const searchField = document.getElementById('search-field');
-                        if (searchField) searchField.focus();
+                        var sf = document.getElementById('search-field');
+                        if (sf) sf.focus();
                     }
                 });
             </script>
         `;
 
-        res.send(layoutTemplate({ title: "Microblog", bodyContent }));
+        res.send(layoutTemplate({ title: 'Microblog', bodyContent }));
     } catch (err) {
-        res.status(500).send("Error rendering dashboard view.");
+        console.error(err);
+        res.status(500).send('Error rendering page.');
     }
 });
 
 app.get('/random', async (req, res) => {
     try {
-        const entry = await db.get(`
-            SELECT id
-            FROM entries
-            ORDER BY RANDOM()
-            LIMIT 1
-        `);
-
-        if (!entry) {
-            return res.redirect('/');
-        }
-
-        res.redirect(`/post/${entry.id}`);
+        const entry = await db.get('SELECT id FROM entries ORDER BY RANDOM() LIMIT 1');
+        if (!entry) return res.redirect('/');
+        res.redirect('/post/' + entry.id);
     } catch (err) {
         res.status(500).send('Error fetching random post.');
     }
@@ -614,44 +473,40 @@ app.get('/random', async (req, res) => {
 app.get('/post/:id', async (req, res) => {
     try {
         const entry = await db.get('SELECT * FROM entries WHERE id = ?', [req.params.id]);
-        if (!entry) return res.status(404).send("Post not found.");
+        if (!entry) return res.status(404).send('Post not found.');
 
         const dateStr = formatDate(entry.timestamp);
         const fullDate = new Date(entry.timestamp).toLocaleString();
         const safeContent = escapeHtml(entry.content);
 
         const bodyContent = `
-            <div class="entry" style="border-bottom: none;">
-                <div class="date" title="${fullDate}">
-                 ${dateStr}
-             </div>
+            <div class="entry" style="border-bottom:none;">
+                <div class="date" title="${fullDate}">${dateStr}</div>
                 <div class="content">${safeContent}</div>
                 <div class="actions">
-                    <a href="/edit/${entry.id}" class="edit-link">Edit</a>
-                    <form action="/delete/${entry.id}" method="POST" style="background:none; padding:0; margin:0; display:inline;" onsubmit="return confirm('Delete this post?')">
-                        <button type="submit" class="delete-btn">Delete</button>
+                    <a href="/post/${entry.id}" class="permalink" title="Permalink">#</a>
+                    <span class="copy-link" onclick="copyPermalink(this, '${entry.id}')">copy</span>
+                    <a href="/edit/${entry.id}" class="edit-link">edit</a>
+                    <form action="/delete/${entry.id}" method="POST" style="background:none;padding:0;margin:0;display:inline;" onsubmit="return confirm('Delete this post?')">
+                        <button type="submit" class="delete-btn">delete</button>
                     </form>
                 </div>
             </div>
-            <p style="margin-top: 30px;"><a href="/" class="back-link">
-    &larr; Back
-        </a></p>
+            <p style="margin-top:30px;"><a href="/" class="back-link">&larr; Back</a></p>
         `;
 
-        res.send(layoutTemplate({ title: "Post", bodyContent }));
+        res.send(layoutTemplate({ title: 'Post', bodyContent }));
     } catch (err) {
-        res.status(500).send("Error fetching post.");
+        res.status(500).send('Error fetching post.');
     }
 });
 
-// Archive: year only - shows all posts from a given year
 app.get('/archive/year/:year', async (req, res) => {
     try {
         const { year } = req.params;
         const archives = await getArchives();
-
         const entries = await db.all(`
-            SELECT * FROM entries 
+            SELECT * FROM entries
             WHERE strftime('%Y', timestamp / 1000, 'unixepoch') = ?
             ORDER BY timestamp DESC
         `, [year]);
@@ -661,112 +516,117 @@ app.get('/archive/year/:year', async (req, res) => {
 
         const bodyContent = `
             ${topFiltersHTML}
-
-            <h2 style="margin-top: 10px; margin-bottom: 25px; font-size: 1rem; color: var(--text-muted); font-weight: normal;">
+            <h2 style="margin-top:10px;margin-bottom:25px;font-size:1rem;color:var(--text-muted);font-weight:normal;">
                 Showing entries from ${year}
                 <a href="/" class="back-link" style="margin-left:15px;">Back to all</a>
             </h2>
             <div id="entries">${entriesHTML}</div>
         `;
 
-        res.send(layoutTemplate({ title: `Archive - ${year}`, bodyContent }));
+        res.send(layoutTemplate({ title: 'Archive - ' + year, bodyContent }));
     } catch (err) {
-        res.status(500).send("Error fetching year archive.");
+        res.status(500).send('Error fetching year archive.');
     }
 });
 
-// Archive: month only - shows all posts from a given month across all years
 app.get('/archive/month/:month', async (req, res) => {
     try {
         const { month } = req.params;
         const archives = await getArchives();
-        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
         const monthName = monthNames[parseInt(month, 10) - 1] || month;
 
         const entries = await db.all(`
-            SELECT * FROM entries 
-            WHERE strftime('%m', timestamp / 1000, 'unixepoch') = ?
-            ORDER BY timestamp DESC
-        `, [month]);
+        SELECT * FROM entries
+        WHERE strftime('%m', timestamp / 1000, 'unixepoch') = ?
+        ORDER BY timestamp DESC
+    `, [month]);
 
         const entriesHTML = renderEntries(entries);
         const topFiltersHTML = renderTopFilters(archives, null, month);
 
         const bodyContent = `
             ${topFiltersHTML}
-
-            <h2 style="margin-top: 10px; margin-bottom: 25px; font-size: 1rem; color: var(--text-muted); font-weight: normal;">
+            <h2 style="margin-top:10px;margin-bottom:25px;font-size:1rem;color:var(--text-muted);font-weight:normal;">
                 Showing entries from ${monthName}
                 <a href="/" class="back-link" style="margin-left:15px;">Back to all</a>
             </h2>
             <div id="entries">${entriesHTML}</div>
         `;
 
-        res.send(layoutTemplate({ title: `Archive - ${monthName}`, bodyContent }));
+        res.send(layoutTemplate({ title: 'Archive - ' + monthName, bodyContent }));
     } catch (err) {
-        res.status(500).send("Error fetching month archive.");
+        res.status(500).send('Error fetching month archive.');
     }
 });
 
-// Archive: year and month combined
 app.get('/archive/:year/:month', async (req, res) => {
     try {
         const { year, month } = req.params;
         const archives = await getArchives();
-        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
         const monthName = monthNames[parseInt(month, 10) - 1] || month;
 
         const entries = await db.all(`
-            SELECT * FROM entries 
-            WHERE strftime('%Y', timestamp / 1000, 'unixepoch') = ? 
-              AND strftime('%m', timestamp / 1000, 'unixepoch') = ?
-            ORDER BY timestamp DESC
-        `, [year, month]);
+        SELECT * FROM entries
+        WHERE strftime('%Y', timestamp / 1000, 'unixepoch') = ?
+        AND strftime('%m', timestamp / 1000, 'unixepoch') = ?
+        ORDER BY timestamp DESC
+    `, [year, month]);
 
         const entriesHTML = renderEntries(entries);
         const topFiltersHTML = renderTopFilters(archives, year, month);
 
         const bodyContent = `
             ${topFiltersHTML}
-
-            <h2 style="margin-top: 10px; margin-bottom: 25px; font-size: 1rem; color: var(--text-muted); font-weight: normal;">
+            <h2 style="margin-top:10px;margin-bottom:25px;font-size:1rem;color:var(--text-muted);font-weight:normal;">
                 Showing entries from ${monthName} ${year}
                 <a href="/" class="back-link" style="margin-left:15px;">Back to all</a>
             </h2>
             <div id="entries">${entriesHTML}</div>
         `;
 
-        res.send(layoutTemplate({ title: `Archive - ${monthName} ${year}`, bodyContent }));
+        res.send(layoutTemplate({ title: 'Archive - ' + monthName + ' ' + year, bodyContent }));
     } catch (err) {
-        res.status(500).send("Error fetching archive.");
+        res.status(500).send('Error fetching archive.');
     }
 });
 
 app.get('/edit/:id', async (req, res) => {
     try {
         const entry = await db.get('SELECT * FROM entries WHERE id = ?', [req.params.id]);
-        if (!entry) return res.status(404).send("Post not found.");
+        if (!entry) return res.status(404).send('Post not found.');
 
         const bodyContent = `
             <div class="edit-container">
                 <form action="/edit/${entry.id}" method="POST" style="margin:0;">
-                    <textarea id="edit-box" name="content" required>${entry.content}</textarea>
+                    <textarea
+                id="edit-box"
+                name="content"
+                required
+                oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px';"
+            >${entry.content}</textarea>
+            <script>
+document.addEventListener('DOMContentLoaded', function() {
+    var el = document.getElementById('edit-box');
+    if (el) {
+        el.style.height = 'auto';
+        el.style.height = el.scrollHeight + 'px';
+    }
+});
+</script>
                     <div>
                         <button type="submit">Update Post</button>
                         <a href="/" class="cancel-btn">Cancel</a>
                     </div>
                 </form>
             </div>
-            
-            <script>
-                ${textareaAutoResizeScript}
-                attachAutoResize('edit-box');
-            </script>
+            <script>attachAutoResize('edit-box');</script>
         `;
 
-        res.send(layoutTemplate({ title: "Edit Post", bodyContent }));
+        res.send(layoutTemplate({ title: 'Edit Post', bodyContent }));
     } catch (err) {
-        res.status(500).send("Error fetching target record elements.");
+        res.status(500).send('Error loading edit page.');
     }
 });
 
@@ -777,7 +637,7 @@ app.post('/edit/:id', async (req, res) => {
         await db.run('UPDATE entries_fts SET content = ? WHERE id = ?', [content, req.params.id]);
         res.redirect('/');
     } catch (err) {
-        res.status(500).send("Error modifying structural records.");
+        res.status(500).send('Error updating post.');
     }
 });
 
@@ -789,11 +649,11 @@ app.post('/add', async (req, res) => {
 
         await db.run('INSERT INTO entries (id, content, timestamp) VALUES (?, ?, ?)', [id, content, timestamp]);
         await db.run('INSERT INTO entries_fts (id, content) VALUES (?, ?)', [id, content]);
-        
+
         res.redirect('/');
     } catch (err) {
         console.error(err);
-        res.status(500).send("Error writing record to database cluster.");
+        res.status(500).send('Error saving post.');
     }
 });
 
@@ -803,12 +663,12 @@ app.post('/delete/:id', async (req, res) => {
         await db.run('DELETE FROM entries_fts WHERE id = ?', [req.params.id]);
         res.redirect('/');
     } catch (err) {
-        res.status(500).send("Error executing structural erasure queries.");
+        res.status(500).send('Error deleting post.');
     }
 });
 
 initDatabase().then(() => {
-    app.listen(PORT, '0.0.0.0', () => {
-        console.log(`Microblog running at http://199.192.16.197:${PORT}`);
+    app.listen(PORT, () => {
+        console.log('Microblog running at http://localhost:' + PORT);
     });
 });

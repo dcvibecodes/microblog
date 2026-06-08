@@ -1,58 +1,41 @@
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
 
 const publicDir = path.join(__dirname, 'public');
+const svgPath = path.join(publicDir, 'icon.svg');
 
-// Ensure we have SVGs first
-function ensureSvgs() {
-    const svgs = [
-        { name: 'icon.svg', size: 64 },
-        { name: 'icon-192.svg', size: 192 },
-        { name: 'icon-512.svg', size: 512 }
-    ];
-    
-    svgs.forEach(({ name, size }) => {
-        const filePath = path.join(publicDir, name);
-        if (!fs.existsSync(filePath)) {
-            const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-  <rect width="${size}" height="${size}" rx="${size * 0.2}" fill="white"/>
-  <text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="${size * 0.5}" font-weight="bold" fill="#333333">M</text>
-</svg>`;
-            fs.writeFileSync(filePath, svgContent);
-            console.log(`Created ${name}`);
-        }
-    });
-}
-
-// Convert SVG to PNG using macOS sips
-function convertSvgToPng(svgName, pngName, size) {
-    const svgPath = path.join(publicDir, svgName);
-    const pngPath = path.join(publicDir, pngName);
-    
-    if (!fs.existsSync(svgPath)) {
-        console.error(`SVG not found: ${svgPath}`);
-        return;
-    }
-    
+async function generate() {
+    let sharp;
     try {
-        execSync(`sips -s format png "${svgPath}" --resampleWidth ${size} --out "${pngPath}" 2>/dev/null`, {
-            stdio: 'pipe',
-            timeout: 10000
-        });
-        console.log(`Created ${pngName} (${size}x${size})`);
+        sharp = require('sharp');
     } catch (e) {
-        console.error(`Failed to create ${pngName}:`, e.message);
+        console.log('sharp is not installed. Install it with: npm install sharp');
+        console.log('Or open generate-icons.html in a browser to download PNG icons manually.');
+        process.exit(1);
     }
+
+    const svgBuffer = fs.readFileSync(svgPath);
+
+    const sizes = [
+        { name: 'icon-512.png', size: 512 },
+        { name: 'icon-192.png', size: 192 },
+        { name: 'apple-touch-icon.png', size: 180 },
+        { name: 'favicon-32.png', size: 32 },
+        { name: 'favicon-16.png', size: 16 }
+    ];
+
+    for (const { name, size } of sizes) {
+        await sharp(svgBuffer)
+            .resize(size, size)
+            .png()
+            .toFile(path.join(publicDir, name));
+        console.log(`Created ${name} (${size}x${size})`);
+    }
+
+    console.log('\nAll PNG icons generated in public/');
 }
 
-ensureSvgs();
-
-// Generate all PNG icons
-convertSvgToPng('icon-192.svg', 'icon-192.png', 192);
-convertSvgToPng('icon-512.svg', 'icon-512.png', 512);
-convertSvgToPng('icon-192.svg', 'apple-touch-icon.png', 192);
-convertSvgToPng('icon-192.svg', 'favicon-32.png', 32);
-convertSvgToPng('icon-192.svg', 'favicon-16.png', 16);
-
-console.log('\nAll PNG icons generated in public/');
+generate().catch(err => {
+    console.error('Error:', err.message);
+    process.exit(1);
+});
