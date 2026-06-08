@@ -1,6 +1,6 @@
 # Microblog
 
-**Version 1.1**
+**Version 1.2**
 
 A minimalist microblogging and note-taking platform built for people who prefer writing over scrolling.
 
@@ -15,8 +15,19 @@ Microblog is designed to feel like a personal notebook: fast, distraction-free, 
 - Clean, distraction-free writing experience
 - Fast post creation
 - Auto-expanding text editor
-- Character counter
+- Character and word counter
 - Keyboard shortcuts
+- Button feedback on publish, edit, delete, and filter actions
+
+### Owner Authentication
+
+- Password-protected publishing, editing, and deleting
+- Visitors can read all posts but cannot modify anything
+- One-time setup flow on first launch
+- bcrypt-hashed password storage (12 rounds, salted)
+- HMAC-signed session cookies (httpOnly, sameSite strict)
+- 7-day session persistence
+- Grayed-out publish box for visitors with login prompt
 
 ### Search
 
@@ -39,7 +50,7 @@ Microblog is designed to feel like a personal notebook: fast, distraction-free, 
 ### Editing
 
 - Edit existing posts
-- Delete posts with confirmation
+- Delete posts with confirmation and visual feedback
 - Permanent links for individual entries
 
 ### Mobile Friendly
@@ -48,6 +59,7 @@ Microblog is designed to feel like a personal notebook: fast, distraction-free, 
 - No horizontal scrolling
 - Works well on phones and tablets
 - Progressive Web App (PWA) support
+- Optimized header layout for narrow screens
 
 ### Dark Mode
 
@@ -93,16 +105,57 @@ Just writing.
 
 - Node.js
 - Express
-- SQLite
-- SQLite FTS5 Search
+- SQLite with FTS5 Search
+- bcryptjs (password hashing)
+- cookie-parser (signed session cookies)
 - Vanilla JavaScript
 - Progressive Web App (PWA)
 
 ---
 
-## Version 1.1
+## Security
 
-### Added
+| Concern | Solution |
+|---------|----------|
+| Password storage | bcrypt hash (12 rounds, salted, slow-by-design) |
+| Session token | HMAC-signed, stored in httpOnly cookie |
+| Cookie flags | httpOnly, sameSite strict |
+| Write protection | Server-side middleware on all mutating routes |
+| XSS prevention | HTML escaping on all user content |
+
+### Password Reset
+
+If you forget your password, delete the file `data/owner.hash` from the server and restart. The app will redirect you to `/setup` to set a new password.
+
+---
+
+## Changelog
+
+### Version 1.2
+
+#### Added
+
+- Owner authentication with bcrypt password hashing
+- One-time `/setup` flow for first-time password creation
+- Login/logout with signed session cookies
+- Grayed-out publish box for unauthenticated visitors
+- "Login" link in header and below disabled publish area
+- Server-side `requireOwner` middleware on all write routes
+- Button feedback: "Publishing...", "Updating...", "deleting...", "Filtering..."
+- Delete button shows "deleting..." with entry fade-out
+- Responsive header tightening for very narrow screens
+
+#### Security
+
+- Passwords hashed with bcryptjs (12 rounds)
+- Session tokens are HMAC-SHA256 signed with auto-generated secret
+- Cookies are httpOnly + sameSite strict
+- Timing-safe comparison for session validation
+- No plaintext credentials stored anywhere
+
+### Version 1.1
+
+#### Added
 
 - Random post navigation
 - Dark mode UI refinements
@@ -114,7 +167,7 @@ Just writing.
 - Cleaner action links
 - Improved dark mode styling
 
-### Improved
+#### Improved
 
 - Reduced visual clutter
 - More consistent typography
@@ -138,6 +191,8 @@ The application will be available at:
 ```
 http://localhost:3000
 ```
+
+On first visit, you'll be redirected to `/setup` to create your owner password.
 
 ---
 
