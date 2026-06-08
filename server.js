@@ -297,7 +297,7 @@ const sharedStyles = `
     .search-icon-btn svg { width: 18px; height: 18px; display: block; }
     .search-icon-btn:hover { opacity: 1; }
     [data-theme="dark"] .search-icon-btn { background: none !important; color: var(--text-muted); }
-    .back-to-top { position: fixed; right: 16px; bottom: 20px; color: var(--text-main); text-decoration: none; font-size: 1.1rem; opacity: 0; transition: opacity 0.2s ease; z-index: 1000; cursor: pointer; user-select: none; }
+    .back-to-top { position: fixed; right: 32px; bottom: 28px; color: var(--text-main); text-decoration: none; font-size: 1.1rem; opacity: 0; transition: opacity 0.2s ease; z-index: 1000; cursor: pointer; user-select: none; }
     .back-to-top.visible { opacity: 0.6; }
     .back-to-top:hover { opacity: 1; }
     .auth-link { color: var(--text-muted); text-decoration: none; font-size: 0.85rem; font-weight: normal; transition: color 0.2s ease; }
