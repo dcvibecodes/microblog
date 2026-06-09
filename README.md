@@ -115,6 +115,28 @@ Just writing.
 
 ---
 
+## Search Engine Indexing
+
+By default, Microblog is configured to prevent search engines from indexing your content.
+
+The application includes the following meta tag in `server.js`:
+
+```html
+<meta name="robots" content="noindex, nofollow">
+```
+
+This is intentional. Microblog is designed primarily as a personal notebook, journal, or knowledge archive rather than a public content platform.
+
+If you want your Microblog instance to be indexed by Google and other search engines, remove the following line from the `<head>` section of `layoutTemplate()` in `server.js`:
+
+```html
+<meta name="robots" content="noindex, nofollow">
+```
+
+After removing the tag and redeploying, search engines will be allowed to index your content according to their normal crawling policies.
+
+---
+
 ## Security
 
 | Concern | Solution |
