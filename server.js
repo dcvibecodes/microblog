@@ -15,6 +15,7 @@ let db;
 const DATA_DIR = path.join(__dirname, 'data');
 const HASH_FILE = path.join(DATA_DIR, 'owner.hash');
 const SECRET_FILE = path.join(DATA_DIR, 'session.secret');
+const BLOG_TITLE_FILE = path.join(DATA_DIR, 'blog-title.txt');
 const BCRYPT_ROUNDS = 12;
 const SESSION_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days
 
@@ -33,6 +34,19 @@ function isOwnerSetup() {
 function getOwnerHash() {
     if (!fs.existsSync(HASH_FILE)) return null;
     return fs.readFileSync(HASH_FILE, 'utf8').trim();
+}
+
+function getBlogTitle() {
+    if (!fs.existsSync(BLOG_TITLE_FILE)) {
+        return 'Microblog';
+    }
+
+    const title = fs.readFileSync(BLOG_TITLE_FILE, 'utf8').trim();
+    return title || 'Microblog';
+}
+
+function saveBlogTitle(title) {
+    fs.writeFileSync(BLOG_TITLE_FILE, title.trim(), 'utf8');
 }
 
 function isAuthenticated(req) {
@@ -249,6 +263,14 @@ const sharedStyles = `
         display: block;
     }
     input[type="text"], input[type="password"] { width: 100%; max-width: 100%; padding: 12px 0; background: var(--bg-body); color: var(--text-main); border: none; border-bottom: 1px solid var(--separator-color); font-family: inherit; font-size: 1rem; outline: none; }
+    textarea::placeholder,
+    input::placeholder {
+        color: var(--text-muted);
+        opacity: 1;
+        font-family: inherit;
+        font-size: 1rem;
+        font-weight: normal;
+    }
     .filter-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 30px; padding-bottom: 5px; max-width: 100%; }
     .filter-bar select { background: var(--bg-body); color: var(--text-main); border: 1px solid var(--separator-color); padding: 6px 12px; border-radius: 12px; font-family: inherit; font-size: 0.9rem; outline: none; cursor: pointer; }
     button, .btn, .filter-submit-btn { background: #000000; color: #ffffff; border: none; cursor: pointer; font-weight: bold; text-decoration: none; display: inline-block; transition: opacity 0.2s; }
@@ -320,7 +342,7 @@ const sharedStyles = `
     }
 `;
 
-const layoutTemplate = ({ title, bodyContent, isOwner }) => `
+const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle }) =>  `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -331,7 +353,7 @@ const layoutTemplate = ({ title, bodyContent, isOwner }) => `
     <link rel="manifest" href="/manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Microblog">
+    <meta name="apple-mobile-web-app-title" content="${escapeHtml(blogTitle)}">
     <meta name="theme-color" content="#1a1a1a">
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
@@ -342,7 +364,16 @@ const layoutTemplate = ({ title, bodyContent, isOwner }) => `
 </head>
 <body>
     <header>
-        <h1><a href="/" style="color:inherit;text-decoration:none;">Microblog</a></h1>
+        <h1 style="display:flex;align-items:center;gap:8px;">
+            <a href="/" id="blogTitle" style="color:inherit;text-decoration:none;">
+                ${escapeHtml(blogTitle)}
+            </a>
+
+            ${isOwner
+                ? '<a href="#" id="editBlogTitle" class="edit-link">edit</a>'
+                : ''
+            }
+        </h1>
         <div class="header-controls">
             <a href="/random" class="random-link">Random</a>
             <span class="header-separator">&middot;</span>
@@ -556,6 +587,60 @@ const layoutTemplate = ({ title, bodyContent, isOwner }) => `
 
         });
         if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/sw.js'); }
+
+        var blogTitle = document.getElementById('blogTitle');
+        var editBlogTitle = document.getElementById('editBlogTitle');
+
+        if (editBlogTitle) {
+
+            editBlogTitle.addEventListener('click', function(e) {
+
+        e.preventDefault();
+
+        var currentTitle = blogTitle.textContent.trim();
+
+        var newTitle = prompt(
+            'Blog title:',
+            currentTitle
+        );
+
+        if (
+            newTitle === null ||
+            newTitle.trim() === '' ||
+            newTitle === currentTitle
+        ) {
+            return;
+        }
+
+        fetch('/api/blog-title', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                title: newTitle.trim()
+            })
+        })
+        .then(function(r) {
+            return r.json();
+        })
+        .then(function(data) {
+
+            if (!data.success) {
+                throw new Error();
+            }
+
+            blogTitle.textContent = data.title;
+            document.title = data.title;
+
+        })
+        .catch(function() {
+            alert('Failed to save title');
+        });
+
+    });
+
+}
     })();
     </script>
 </body>
@@ -593,7 +678,12 @@ app.get('/setup', (req, res) => {
         </div>
     `;
 
-    res.send(layoutTemplate({ title: 'Setup - Microblog', bodyContent, isOwner: false }));
+    res.send(layoutTemplate({
+    title: 'Setup - Microblog',
+    bodyContent,
+    isOwner: false,
+    blogTitle: getBlogTitle()
+}));
 });
 
 app.post('/setup', async (req, res) => {
@@ -614,7 +704,12 @@ app.post('/setup', async (req, res) => {
                 </form>
             </div>
         `;
-        return res.send(layoutTemplate({ title: 'Setup - Microblog', bodyContent, isOwner: false }));
+        return res.send(layoutTemplate({
+            title: 'Setup - Microblog',
+            bodyContent,
+            isOwner: false,
+            blogTitle: getBlogTitle()
+        }));
     }
 
     if (password !== confirm) {
@@ -630,7 +725,12 @@ app.post('/setup', async (req, res) => {
                 </form>
             </div>
         `;
-        return res.send(layoutTemplate({ title: 'Setup - Microblog', bodyContent, isOwner: false }));
+        return res.send(layoutTemplate({
+            title: 'Setup - Microblog',
+            bodyContent,
+            isOwner: false,
+            blogTitle: getBlogTitle()
+        }));
     }
 
     const hash = await bcrypt.hash(password, BCRYPT_ROUNDS);
@@ -668,7 +768,12 @@ app.get('/login', (req, res) => {
         </div>
     `;
 
-    res.send(layoutTemplate({ title: 'Login - Microblog', bodyContent, isOwner: false }));
+        res.send(layoutTemplate({
+        title: 'Login - Microblog',
+        bodyContent,
+        isOwner: false,
+        blogTitle: getBlogTitle()
+    }));
 });
 
 app.post('/login', async (req, res) => {
@@ -697,6 +802,24 @@ app.post('/login', async (req, res) => {
 app.get('/logout', (req, res) => {
     res.clearCookie('session');
     res.redirect('/');
+});
+
+app.post('/api/blog-title', requireOwner, (req, res) => {
+
+    const title = String(req.body.title || '').trim();
+
+    if (!title) {
+        return res.status(400).json({
+            success: false
+        });
+    }
+
+    saveBlogTitle(title);
+
+    res.json({
+        success: true,
+        title
+    });
 });
 
 // --- Main Routes ---
@@ -774,7 +897,7 @@ hasMore = offset + PAGE_SIZE < totalPosts.count;
         const bodyContent = `
             <div class="search-container">
                 <form action="/" method="GET" class="search-form">
-                    <input type="text" name="q" id="search-field" placeholder="Fuzzy search" value="${escapeHtml(searchQuery)}">
+                    <input type="text" name="q" id="search-field" placeholder="Search" value="${escapeHtml(searchQuery)}">
                     <button type="submit" class="search-icon-btn" aria-label="Search">
                         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
                             <circle cx="11" cy="11" r="7"></circle>
@@ -826,7 +949,12 @@ hasMore = offset + PAGE_SIZE < totalPosts.count;
             </script>
         `;
 
-        res.send(layoutTemplate({ title: 'Microblog', bodyContent, isOwner: req.isOwner }));
+        res.send(layoutTemplate({
+            title: getBlogTitle(),
+            bodyContent,
+            isOwner: req.isOwner,
+            blogTitle: getBlogTitle()
+        }));
     } catch (err) {
         console.error(err);
         res.status(500).send('Error rendering page.');
@@ -871,7 +999,12 @@ app.get('/post/:id', async (req, res) => {
             <p style="margin-top:30px;"><a href="/" class="back-link">&larr; Back</a></p>
         `;
 
-        res.send(layoutTemplate({ title: 'Post', bodyContent, isOwner: req.isOwner }));
+        res.send(layoutTemplate({
+            title: 'Post',
+            bodyContent,
+            isOwner: req.isOwner,
+            blogTitle: getBlogTitle()
+        }));
     } catch (err) {
         res.status(500).send('Error fetching post.');
     }
@@ -899,7 +1032,12 @@ app.get('/archive/year/:year', async (req, res) => {
             <div id="entries">${entriesHTML}</div>
         `;
 
-        res.send(layoutTemplate({ title: 'Archive - ' + year, bodyContent, isOwner: req.isOwner }));
+        res.send(layoutTemplate({
+            title: 'Archive - ' + year,
+            bodyContent,
+            isOwner: req.isOwner,
+            blogTitle: getBlogTitle()
+        }));
     } catch (err) {
         res.status(500).send('Error fetching year archive.');
     }
@@ -930,7 +1068,12 @@ app.get('/archive/month/:month', async (req, res) => {
             <div id="entries">${entriesHTML}</div>
         `;
 
-        res.send(layoutTemplate({ title: 'Archive - ' + monthName, bodyContent, isOwner: req.isOwner }));
+        res.send(layoutTemplate({
+            title: 'Archive - ' + monthName,
+            bodyContent,
+            isOwner: req.isOwner,
+            blogTitle: getBlogTitle()
+        }));
     } catch (err) {
         res.status(500).send('Error fetching month archive.');
     }
@@ -962,7 +1105,12 @@ app.get('/archive/:year/:month', async (req, res) => {
             <div id="entries">${entriesHTML}</div>
         `;
 
-        res.send(layoutTemplate({ title: 'Archive - ' + monthName + ' ' + year, bodyContent, isOwner: req.isOwner }));
+        res.send(layoutTemplate({
+            title: 'Archive - ' + monthName + ' ' + year,
+            bodyContent,
+            isOwner: req.isOwner,
+            blogTitle: getBlogTitle()
+        }));
     } catch (err) {
         res.status(500).send('Error fetching archive.');
     }
@@ -999,7 +1147,12 @@ app.get('/edit/:id', requireOwner, async (req, res) => {
             <script>attachAutoResize('edit-box');</script>
         `;
 
-        res.send(layoutTemplate({ title: 'Edit Post', bodyContent, isOwner: true }));
+        res.send(layoutTemplate({
+            title: 'Edit Post',
+            bodyContent,
+            isOwner: true,
+            blogTitle: getBlogTitle()
+        }));
     } catch (err) {
         res.status(500).send('Error loading edit page.');
     }

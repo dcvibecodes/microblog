@@ -1,6 +1,6 @@
 # Microblog
 
-**Version 1.3**
+**Version 1.4**
 
 A minimalist microblogging and note-taking platform built for people who prefer writing over scrolling.
 
@@ -34,6 +34,13 @@ Microblog is designed to feel like a personal notebook: fast, distraction-free, 
 - Fuzzy full-text search powered by SQLite FTS5
 - Instant access to old thoughts and notes
 - Search directly from the homepage
+
+### Customization
+
+- Custom blog title
+- Inline title editing for owners
+- Title persists across server restarts
+- Default title remains "Microblog"
 
 ### Archives
 
@@ -83,6 +90,10 @@ The goal is simple:
 - Stay out of the way
 
 No timelines.
+
+No followers.
+
+No algorithms.
 
 No engagement metrics.
 
@@ -154,6 +165,24 @@ If you forget your password, delete the file `data/owner.hash` from the server a
 ---
 
 ## Changelog
+
+### Version 1.4
+
+#### Added
+
+- Custom blog titles
+- Inline title editing for owners
+- Persistent blog title storage
+
+#### Improved
+
+- Simplified search terminology ("Search" instead of "Fuzzy Search")
+- Improved consistency between search and post composer placeholders
+- Better branding flexibility for self-hosted instances
+
+#### Fixed
+
+- Blog title now remains configurable without modifying source code
 
 ### Version 1.3
 
