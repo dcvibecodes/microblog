@@ -609,24 +609,40 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery })
 
         // Delete handler
         window.handleDelete = function(form) {
-            if (!confirm('Delete this post?')) return false;
             var btn = form.querySelector('.delete-btn');
-            var entry = form.closest('.entry');
-            if (btn) { btn.textContent = 'deleting...'; btn.disabled = true; }
-            fetch(form.action, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-            .then(function(response) {
-                if (!response.ok) throw new Error('Delete failed');
-                if (entry) {
-                    entry.style.transition = 'opacity 0.2s ease, max-height 0.2s ease, margin 0.2s ease, padding 0.2s ease';
-                    entry.style.opacity = '0';
-                    setTimeout(function() { entry.style.maxHeight = '0'; entry.style.marginBottom = '0'; entry.style.paddingBottom = '0'; entry.style.overflow = 'hidden'; }, 50);
-                    setTimeout(function() { entry.remove(); }, 250);
-                }
-            })
-            .catch(function() {
-                if (btn) { btn.textContent = 'delete'; btn.disabled = false; }
-                alert('Failed to delete post.');
-            });
+            // If already confirming, proceed with delete
+            if (btn && btn.dataset.confirming === 'true') {
+                btn.textContent = 'deleting...';
+                btn.disabled = true;
+                var entry = form.closest('.entry');
+                fetch(form.action, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(function(response) {
+                    if (!response.ok) throw new Error('Delete failed');
+                    if (entry) {
+                        entry.style.transition = 'opacity 0.2s ease, max-height 0.2s ease, margin 0.2s ease, padding 0.2s ease';
+                        entry.style.opacity = '0';
+                        setTimeout(function() { entry.style.maxHeight = '0'; entry.style.marginBottom = '0'; entry.style.paddingBottom = '0'; entry.style.overflow = 'hidden'; }, 50);
+                        setTimeout(function() { entry.remove(); }, 250);
+                    }
+                })
+                .catch(function() {
+                    if (btn) { btn.textContent = 'delete'; btn.disabled = false; btn.dataset.confirming = ''; }
+                    alert('Failed to delete post.');
+                });
+                return false;
+            }
+            // First click: show "confirm?" text
+            if (btn) {
+                btn.textContent = 'confirm?';
+                btn.dataset.confirming = 'true';
+                // Reset after 3 seconds if not confirmed
+                setTimeout(function() {
+                    if (btn.dataset.confirming === 'true') {
+                        btn.textContent = 'delete';
+                        btn.dataset.confirming = '';
+                    }
+                }, 3000);
+            }
             return false;
         };
 
