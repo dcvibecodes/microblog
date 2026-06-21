@@ -109,14 +109,49 @@ async function initDatabase() {
     `);
 
     await db.exec(`
-        CREATE VIRTUAL TABLE IF NOT EXISTS entries_fts USING fts5(
-            id UNINDEXED,
-            content
-        )
+    CREATE VIRTUAL TABLE IF NOT EXISTS entries_fts USING fts5(
+        id UNINDEXED,
+        content
+    )
+`);
+
+// Backfill: index any entries missing from FTS
+const missing = await db.all(`
+    SELECT e.id, e.content
+    FROM entries e
+    LEFT JOIN entries_fts f ON e.id = f.id
+    WHERE f.id IS NULL
+`);
+
+if (missing.length > 0) {
+    const stmt = await db.prepare(`
+        INSERT INTO entries_fts (id, content)
+        VALUES (?, ?)
     `);
 
-    console.log('SQLite Database and FTS5 Search Index ready.');
+    for (const row of missing) {
+        await stmt.run(row.id, row.content);
+    }
+
+    await stmt.finalize();
+    console.log(`FTS5: Indexed ${missing.length} existing entries.`);
 }
+
+const { c: totalEntries } = await db.get(
+    'SELECT COUNT(*) as c FROM entries'
+);
+
+const { c: ftsEntries } = await db.get(
+    'SELECT COUNT(*) as c FROM entries_fts'
+);
+
+console.log(
+`SQLite Database ready. Entries: ${totalEntries}, FTS indexed: ${ftsEntries}${
+        totalEntries === ftsEntries ? ' ✓' : ' ✗ MISMATCH'
+    }`
+);
+
+} // End initDatabase()
 
 function escapeHtml(text) {
     return String(text)
