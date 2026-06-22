@@ -318,8 +318,25 @@ const sharedStyles = `
     .inline-search .search-icon-btn { flex-shrink: 0; }
     .search-bar-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: var(--bg-body); display: flex; align-items: center; gap: 8px; padding-right: 4px; opacity: 0; pointer-events: none; transition: opacity 0.25s ease; z-index: 10; }
     .search-bar-overlay.open { opacity: 1; pointer-events: auto; }
-    .search-bar-overlay input[type="text"] { flex: 1; padding: 6px 0; font-size: 1rem; border: none; border-bottom: 1px solid var(--separator-color); background: transparent; color: var(--text-main); outline: none; font-family: inherit; }
-    .search-bar-overlay input[type="text"]::placeholder { color: var(--text-muted); opacity: 0.7; font-size: 1rem; }
+    .search-bar-overlay input[type="text"] {
+    flex: 1;
+    padding: 12px 0;
+    background: var(--bg-body);
+    color: var(--text-main);
+    border: none;
+    border-bottom: 1px solid var(--separator-color);
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: normal;
+    outline: none;
+}
+    .search-bar-overlay input[type="text"]::placeholder {
+    color: var(--text-muted);
+    opacity: 1;
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: normal;
+}   
     .search-bar-overlay .search-bar-close { background: none !important; border: none; padding: 0; margin: 0; color: var(--text-muted); cursor: pointer; font-size: 1.2rem; line-height: 1; opacity: 0.6; flex-shrink: 0; }
     .search-bar-overlay .search-bar-close:hover { opacity: 1; }
     [data-theme="dark"] .search-bar-overlay .search-bar-close { background: none !important; color: var(--text-muted); }
@@ -405,13 +422,11 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery })
             </h1>
         </div>
         <div class="header-controls">
-            <div class="desktop-nav">
-                <a href="/all" class="random-link">all</a>
-                <span class="header-separator">&middot;</span>
-                <a href="/archive" class="random-link">archive</a>
-                <span class="header-separator">&middot;</span>
-                <a href="/random" class="random-link">random</a>
-            </div>
+        <div class="desktop-nav">
+            <a href="/archive" class="random-link">archive</a>
+            <span class="header-separator">&middot;</span>
+            <a href="/random" class="random-link">random</a>
+        </div>
             <a href="/random" class="mobile-random-btn" aria-label="Random">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
                     <polyline points="16 3 21 3 21 8"></polyline>
@@ -477,7 +492,6 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery })
     <!-- Mobile menu overlay -->
     <div class="mobile-menu" id="mobileMenu">
         <button type="button" class="mobile-menu-close" id="mobileMenuClose">&times;</button>
-        <a href="/all">all</a>
         <a href="/archive">archive</a>
         ${isOwner
             ? '<a href="#" id="mobileEditTitle">edit title</a><a href="#" id="mobileThemeToggle">dark</a><a href="/logout">logout</a>'
@@ -1219,7 +1233,6 @@ app.get('/sitemap.xml', async (req, res) => {
         let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
         xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
         xml += `  <url>\n    <loc>${host}/</loc>\n    <changefreq>daily</changefreq>\n  </url>\n`;
-        xml += `  <url>\n    <loc>${host}/all</loc>\n    <changefreq>daily</changefreq>\n  </url>\n`;
         xml += `  <url>\n    <loc>${host}/archive</loc>\n    <changefreq>weekly</changefreq>\n  </url>\n`;
         xml += `  <url>\n    <loc>${host}/api/posts</loc>\n    <changefreq>daily</changefreq>\n  </url>\n`;
 
@@ -1282,53 +1295,6 @@ app.get('/archive', async (req, res) => {
     }
 });
 
-// --- All Posts (paginated, 200 per page) ---
-
-app.get('/all', async (req, res) => {
-    try {
-        const PAGE_SIZE = 200;
-        const offset = parseInt(req.query.offset || '0', 10);
-
-        const entries = await db.all(
-            'SELECT * FROM entries ORDER BY timestamp DESC LIMIT ? OFFSET ?',
-            [PAGE_SIZE, offset]
-        );
-        const totalPosts = await db.get('SELECT COUNT(*) AS count FROM entries');
-        const hasMore = offset + PAGE_SIZE < totalPosts.count;
-
-        const entriesHTML = renderEntries(entries, req.isOwner);
-
-        let paginationHTML = '';
-        if (hasMore || offset > 0) {
-            paginationHTML = '<div style="text-align:center;margin:30px 0;display:flex;gap:15px;justify-content:center;">';
-            if (offset > 0) {
-                const prevOffset = Math.max(0, offset - PAGE_SIZE);
-                paginationHTML += `<a href="/all?offset=${prevOffset}" class="btn">&larr; Newer</a>`;
-            }
-            if (hasMore) {
-                paginationHTML += `<a href="/all?offset=${offset + PAGE_SIZE}" class="btn">Older &rarr;</a>`;
-            }
-            paginationHTML += '</div>';
-        }
-
-        const bodyContent = `
-            <h2 style="font-size:1rem;color:var(--text-muted);font-weight:normal;margin-bottom:25px;">
-                All Posts <span style="font-size:0.85rem;">(${totalPosts.count})</span>
-            </h2>
-            <div id="entries">${entriesHTML}</div>
-            ${paginationHTML}
-        `;
-
-        res.send(layoutTemplate({
-            title: 'All Posts',
-            bodyContent,
-            isOwner: req.isOwner,
-            blogTitle: getBlogTitle()
-        }));
-    } catch (err) {
-        res.status(500).send('Error fetching all posts.');
-    }
-});
 
 // --- JSON API for LLMs ---
 
