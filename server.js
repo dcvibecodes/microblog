@@ -285,7 +285,7 @@ const sharedStyles = `
     .content {
         white-space: pre-wrap;
         line-height: 1.6;
-        font-size: 1.05rem;
+        font-size: 1.01rem;
         margin-bottom: 12px;
     }
     .expandable-content { cursor: pointer; }
@@ -991,7 +991,7 @@ hasMore = offset + PAGE_SIZE < totalPosts.count;
                     <textarea
                         id="main-publish-box"
                         name="content"
-                        placeholder="Post a thought..."
+                        placeholder="Write something..."
                         required
                         oninput="var s=window.scrollY;this.style.height='auto';this.style.height=this.scrollHeight+'px';window.scrollTo(0,s);"
                     ></textarea>
